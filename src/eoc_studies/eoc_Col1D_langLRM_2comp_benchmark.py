@@ -1,12 +1,9 @@
 import sys
 sys.path.append(r"C:\Users\Matthias\software\CADET-Verification\src\benchmark_models")
-from setting_Col1D_langLRM_2comp_benchmark1 import get_model
 import numpy as np
 import pandas as pd
 from cadet import Cadet
 from scipy.interpolate import interp1d
-
-Cadet.cadet_path = r"C:\Users\Matthias\anaconda3\envs\cadet-env\bin\cadet-cli.exe"
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 def load_from_h5(spatial_method, refinement):
@@ -101,33 +98,48 @@ def eoc_display_testing():
     print("\n=== DG P3 EOC Table ===")
     print(table_dg.to_string(index=False))
 # ── main ───────────────────────────────────────────────────────────────────────
-# quick_dimension_check()
-# another_check()
-#test()
-eoc_display_testing()
 
-import matplotlib.pyplot as plt
+def mainFunc(
+        n_jobs,
+        cadet_path,
+        small_test,
+        output_path):
+    
+    Cadet.cadet_path = cadet_path
 
-t_ref, ref_solution = load_from_h5(5, 32)  # P5 ref=64 as reference
-t_1, sol_1 = load_from_h5(0, 16)           # FV ref=16 as test
+    # quick_dimension_check()
+    # another_check()
+    # test()
+    eoc_display_testing()
+    
+    import matplotlib.pyplot as plt
+    
+    t_ref, ref_solution = load_from_h5(5, 32)  # P5 ref=64 as reference
+    t_1, sol_1 = load_from_h5(0, 16)           # FV ref=16 as test
+    
+    print(np.max(np.abs(ref_solution - sol_1)))
+    error = np.abs(ref_solution - sol_1)
+    
+    idx = np.unravel_index(np.argmax(error), error.shape)
+    
+    print("Maximum error:", error[idx])
+    print("Zeitindex:", idx[0])
+    print("Komponente:", idx[1])
+    print("Zeitpunkt:", t_1[idx[0]])
+    
+    plt.figure()
+    plt.plot(t_ref, ref_solution[:, 0], label="ref (P5 ref=32) comp1")
+    plt.plot(t_1,   sol_1[:, 0],        label="test (FV ref=16) comp1", linestyle="--")
+    plt.plot(t_ref, ref_solution[:, 1], label="ref (P5 ref=32) comp2")
+    plt.plot(t_1,   sol_1[:, 1],        label="test (FV ref=16) comp2", linestyle="--")
+    plt.legend()
+    plt.xlabel("time")
+    plt.ylabel("concentration")
+    plt.title("Reference vs Test solution")
+    plt.show()
 
-print(np.max(np.abs(ref_solution - sol_1)))
-error = np.abs(ref_solution - sol_1)
-
-idx = np.unravel_index(np.argmax(error), error.shape)
-
-print("Maximum error:", error[idx])
-print("Zeitindex:", idx[0])
-print("Komponente:", idx[1])
-print("Zeitpunkt:", t_1[idx[0]])
-
-plt.figure()
-plt.plot(t_ref, ref_solution[:, 0], label="ref (P5 ref=32) comp1")
-plt.plot(t_1,   sol_1[:, 0],        label="test (FV ref=16) comp1", linestyle="--")
-plt.plot(t_ref, ref_solution[:, 1], label="ref (P5 ref=32) comp2")
-plt.plot(t_1,   sol_1[:, 1],        label="test (FV ref=16) comp2", linestyle="--")
-plt.legend()
-plt.xlabel("time")
-plt.ylabel("concentration")
-plt.title("Reference vs Test solution")
-plt.show()
+mainFunc(n_jobs=-1,
+         cadet_path = r"C:\Users\jmbr\Desktop\CADET_compiled\master5_fixParCoords_783967a\aRELEASE\bin\cadet-cli.exe",
+         small_test = True,
+         output_path = "" # todo
+         )
