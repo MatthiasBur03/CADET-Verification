@@ -28,6 +28,7 @@ def get_model(
     
     column.UNIT_TYPE = 'COLUMN_MODEL_1D'
     column.ncomp = 2
+    column.npartype = 1
     column.col_dispersion = kwargs.get("col_dispersion", 1e-05)
     column.col_length = 1.0
     column.total_porosity = 0.4
@@ -140,50 +141,56 @@ def get_model(
     return model
 
 # === CADET self-check block ===
-
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    
-    
-    import os
     import sys
-    
+
     try:
         from cadet import Cadet
-        model = Cadet()
-        model.root = get_model(spatial_method_bulk=0, refinement=8, col_dispersion=1e-5)   # 0=FV, 1=DG        
-        model.filename = "check_LRM_2comp.h5"
-        model.save()        
-        #Running CADET simulation
-        data = model.run()
-        
-        if data.return_code == 0:
-            # Load the results from the model
-            model.load()
-            outlet_data = model.root.output.solution.unit_001.solution_outlet
-            sim_time = model.root.output.solution.solution_times
-            plt.plot(sim_time, outlet_data)
-            plt.show()
-        else:
-            raise Exception(data.error_message)
-        
+        import h5py
+        import numpy as np
+
+        sim = Cadet()
+        sim.root = get_model(spatial_method_bulk=5, refinement=4, col_dispersion=1e-5)
+        sim.filename = "check_LRM_2comp.h5"
+        sim.save()
+
+        # Verify HDF5
+        with h5py.File("check_LRM_2comp.h5", "r") as f:
+            keys = list(f.keys())
+            print(f"✓ HDF5 saved, root keys: {keys}")
+            if "input" not in keys:
+                raise RuntimeError(f"HDF5 missing '/input'. Keys: {keys}")
+
+        # Run
+        print("Running simulation...")
+        return_info = sim.run_simulation()
+        print(f"  Return code: {return_info.return_code}")
+
+        if return_info.return_code != 0:
+            print(f"❌ Simulation failed: {return_info.error_message}")
+            sys.exit(1)
+
+        # Load and plot
+        sim.load_from_file()
+        outlet_data = sim.root.output.solution.unit_001.solution_outlet
+        sim_times = sim.root.output.solution.solution_times
+
+        plt.figure()
+        plt.plot(sim_times, outlet_data)
+        plt.xlabel("Time [s]")
+        plt.ylabel("Concentration")
+        plt.title("LRM 2-Component Langmuir - Outlet")
+        plt.tight_layout()
+        plt.show()
+
         print("\n" + "=" * 60)
         print("=== Check complete ===")
         print("=" * 60)
-        
-    except ImportError as e:
-        print(f"\n❌ ERROR: Could not import required module: {e}")
-        print("\nMake sure you have installed CADET-Python:")
-        print("  pip install cadet-python")
-        sys.exit(1)
-        
+
     except Exception as e:
-        print(f"\n❌ ERROR: An unexpected error occurred:")
-        print(f"  {type(e).__name__}: {e}")
         import traceback
-        print("\nFull traceback:")
-        print("-" * 60)
+        print(f"\n❌ ERROR: {type(e).__name__}: {e}")
         traceback.print_exc()
-        print("-" * 60)
         sys.exit(1)
